@@ -1,0 +1,107 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8" />
+  <title>CCTV Live</title>
+  <style>
+    html, body {
+      margin: 0;
+      padding: 0;
+      height: 100%;
+      background: black;
+    }
+    video {
+      width: 100vw;
+      height: 100vh;
+      object-fit: cover;
+      background: black;
+    }
+  </style>
+</head>
+<body>
+  <video id="mse-video" autoplay muted playsinline></video>
+
+  <script>
+    function startCctv(mseUrl) {
+      const videoEl = document.querySelector("#mse-video");
+
+      let mseQueue = [];
+      let mseSourceBuffer;
+      let mseStreamingStarted = false;
+      let currentWs = null;
+      let mse = new MediaSource();
+
+      videoEl.src = window.URL.createObjectURL(mse);
+
+      mse.addEventListener("sourceopen", () => {
+        if (currentWs) currentWs.close();
+        if (mseSourceBuffer) {
+          try {
+            mseSourceBuffer.abort();
+            mse.removeSourceBuffer(mseSourceBuffer);
+          } catch (e) {
+            console.warn("Error removing SourceBuffer:", e);
+          }
+          mseQueue = [];
+          mseStreamingStarted = false;
+        }
+
+        const ws = new WebSocket(mseUrl);
+        currentWs = ws;
+        ws.binaryType = "arraybuffer";
+
+        ws.onerror = () => {
+          alert("Gagal memuat stream CCTV. Periksa URL atau kamera offline.");
+        };
+
+        ws.onmessage = function (event) {
+          const data = new Uint8Array(event.data);
+          if (data[0] === 9) {
+            const decoded = data.slice(1);
+            let mimeCodec = "video/mp4; codecs=\"avc1.42E01E\"";
+            try {
+              mimeCodec = 'video/mp4; codecs="' + new TextDecoder("utf-8").decode(decoded) + '"';
+            } catch (e) {
+              console.warn("Fallback codec used");
+            }
+            mseSourceBuffer = mse.addSourceBuffer(mimeCodec);
+            mseSourceBuffer.mode = "segments";
+            mseSourceBuffer.addEventListener("updateend", pushPacket);
+          } else {
+            readPacket(event.data);
+          }
+        };
+      });
+
+      function pushPacket() {
+        if (!mseSourceBuffer.updating && mseQueue.length > 0) {
+          mseSourceBuffer.appendBuffer(mseQueue.shift());
+        } else {
+          mseStreamingStarted = false;
+        }
+      }
+
+      function readPacket(packet) {
+        if (!mseStreamingStarted) {
+          mseSourceBuffer.appendBuffer(packet);
+          mseStreamingStarted = true;
+          return;
+        }
+        mseQueue.push(packet);
+        if (!mseSourceBuffer.updating) {
+          pushPacket();
+        }
+      }
+    }
+
+    // Ambil URL dari hash (#...)
+    const hash = window.location.hash;
+    if (hash && hash.startsWith("#wss://")) {
+      const streamUrl = decodeURIComponent(hash.substring(1));
+      startCctv(streamUrl);
+    } else {
+      document.body.innerHTML = "<p style='color: white; text-align: center; font-size: 1.5em;'>Tambahkan link stream setelah tanda # di URL</p>";
+    }
+  </script>
+</body>
+</html>
