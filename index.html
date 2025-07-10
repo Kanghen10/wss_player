@@ -16,14 +16,27 @@
       object-fit: contain;
       background: black;
     }
+    #offline-message {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      color: white;
+      font-size: 1.8em;
+      font-family: sans-serif;
+      display: none;
+      text-align: center;
+    }
   </style>
 </head>
 <body>
   <video id="mse-video" autoplay muted playsinline></video>
+  <div id="offline-message">CCTV sedang offline</div>
 
   <script>
     function startCctv(mseUrl) {
       const videoEl = document.querySelector("#mse-video");
+      const offlineMessage = document.querySelector("#offline-message");
 
       let mseQueue = [];
       let mseSourceBuffer;
@@ -50,16 +63,17 @@
         currentWs = ws;
         ws.binaryType = "arraybuffer";
 
-       ws.onerror = (e) => {
-  console.error("WebSocket Error:", e);
-  alert("Gagal memuat stream CCTV. Periksa URL atau kamera offline.");
-};
+        ws.onerror = () => {
+          // Ganti alert dengan tampilan teks
+          offlineMessage.style.display = "block";
+          videoEl.style.display = "none"; // Sembunyikan video jika gagal
+        };
 
-ws.onclose = () => {
-  // Mencegah error tambahan dari fallback browser
-  console.warn("WebSocket closed unexpectedly");
-};
-
+        ws.onclose = () => {
+          // Jika koneksi tiba-tiba tertutup, juga tampilkan pesan offline
+          offlineMessage.style.display = "block";
+          videoEl.style.display = "none";
+        };
 
         ws.onmessage = function (event) {
           const data = new Uint8Array(event.data);
