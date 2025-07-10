@@ -13,7 +13,7 @@
     video {
       width: 100vw;
       height: 100vh;
-      object-fit: cover;
+      object-fit: contain;
       background: black;
     }
   </style>
@@ -94,7 +94,6 @@
       }
     }
 
-    // Ambil URL dari hash (#...)
     const hash = window.location.hash;
     if (hash && hash.startsWith("#wss://")) {
       const streamUrl = decodeURIComponent(hash.substring(1));
