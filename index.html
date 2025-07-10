@@ -50,9 +50,16 @@
         currentWs = ws;
         ws.binaryType = "arraybuffer";
 
-        ws.onerror = () => {
-          alert("Gagal memuat stream CCTV. Periksa URL atau kamera offline.");
-        };
+       ws.onerror = (e) => {
+  console.error("WebSocket Error:", e);
+  alert("Gagal memuat stream CCTV. Periksa URL atau kamera offline.");
+};
+
+ws.onclose = () => {
+  // Mencegah error tambahan dari fallback browser
+  console.warn("WebSocket closed unexpectedly");
+};
+
 
         ws.onmessage = function (event) {
           const data = new Uint8Array(event.data);
